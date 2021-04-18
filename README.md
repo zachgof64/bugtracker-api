@@ -1,1 +1,1 @@
-# bugtracker-api
+# Bugtracker API
