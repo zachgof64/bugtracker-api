@@ -1,70 +1,66 @@
 package routes
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/zeuce/bugtracker-api/utils"
 )
 
-type NoDataResponse struct {
-	StatusCode uint16 `json:"statusCode"`
-	Message string `json:"message"`
-}
 
 type Header struct {
-	Key string
+	Key   string
 	Value string
 }
 
+type RequestBody struct {
+	Limit    int    `json:"limit,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Resolved bool   `json:"resolved,omitempty"`
+}
 
 var router *mux.Router = mux.NewRouter()
 var globalHeaders = []Header{
 	{
-		Key: "Content-Type",
+		Key:   "Content-Type",
 		Value: "application/json",
 	},
 	{
-		Key: "Accept",
+		Key:   "Accept",
 		Value: "application/json",
 	},
 	{
-		Key: "Access-Control-Allow-Origin",
+		Key:   "Access-Control-Allow-Origin",
 		Value: "*",
 	},
 }
-
 
 func globalHeaderHandler() mux.MiddlewareFunc {
 	return mux.MiddlewareFunc(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			apiKey := r.Header.Get("Authorization")
-			var res NoDataResponse
-			for _,h := range globalHeaders {
+			for _, h := range globalHeaders {
 				w.Header().Add(h.Key, h.Value)
 			}
 			if apiKey == "038479357927598739" {
-				next.ServeHTTP(w,r)
+				next.ServeHTTP(w, r)
 			} else {
-				res.StatusCode = 401
-				res.Message = "Not Authorized"
-				w.WriteHeader(int(res.StatusCode))
-				json.NewEncoder(w).Encode(res)
+				utils.SendResponse(401, "not authorized", nil, w)
 			}
-			
+
 		})
 	})
 }
 
 // AddGlobalHeaders - adds headers to all requests
 func AddGlobalHeaders(headers ...Header) {
-		globalHeaders = append(globalHeaders, headers...)
+	globalHeaders = append(globalHeaders, headers...)
 }
 
 func setupRoutes() {
-	router.HandleFunc("/bugs", GetAllBugsHandler)
-	router.HandleFunc("/bugs/{id}", GetBugHandler)
+	router.HandleFunc("/bugs", BugsHandler).Methods("GET", "POST")
+	router.HandleFunc("/bugs/{id}", BugHandler).Methods("GET",  "PATCH", "DELETE")
 }
 
 // SetupRouter - Setups mux router with global headers
