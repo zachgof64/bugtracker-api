@@ -14,11 +14,6 @@ type Header struct {
 	Value string
 }
 
-type RequestBody struct {
-	Limit    int    `json:"limit,omitempty"`
-	Title    string `json:"title,omitempty"`
-	Resolved bool   `json:"resolved,omitempty"`
-}
 
 var router *mux.Router = mux.NewRouter()
 var globalHeaders = []Header{

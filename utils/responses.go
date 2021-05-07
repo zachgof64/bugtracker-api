@@ -19,6 +19,6 @@ func SendResponse(statusCode int, message string, data ResponseData,  w http.Res
 		Message: message,
 		Data: data,
 	}
-
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(d)
 }

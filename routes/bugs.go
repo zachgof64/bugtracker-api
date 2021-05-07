@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/zeuce/bugtracker-api/utils"
+	"github.com/zeuce/gotils"
 )
 
 type Bug struct {
@@ -18,22 +20,36 @@ type Bug struct {
 	Resolved bool   `json:"resolved"`
 }
 
+type BugRequestBody struct {
+	Limit    int    `json:"limit,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Resolved bool   `json:"resolved,omitempty"`
+}
+
 var db *sql.DB = utils.ConnectUsingENV("MYSQL_CONN_STRING")
 
 
 // GetAllBugsHandler - handler for getting all bugs
 func BugsHandler(w http.ResponseWriter, r *http.Request) {
-	var body RequestBody
-	var limit string
+	var body BugRequestBody
 	bodyDecErr := json.NewDecoder(r.Body).Decode(&body)
-	if bodyDecErr != io.EOF {
+	var limit string
+	if bodyDecErr != io.EOF && body.Limit != 0 {
 		limit = strconv.Itoa(body.Limit)
 	} else {
 		limit = strconv.Itoa(10)
 	}
-
+	if (r.Method == "POST") {
+		if (body.Title == "") {
+			utils.SendResponse(400, "title missing", nil, w)
+		} else {
+			postBug(body.Title , w)
+		}
+	} else {
 	query, queryErr := db.Query("SELECT * FROM bugs LIMIT " + limit)
-	utils.CheckAndSendErrorResponse(queryErr, w)
+	if (queryErr != nil) {
+		gotils.SendHTTPError(queryErr, w)
+	}
 	defer query.Close()
 
 	var bugs []Bug
@@ -44,6 +60,8 @@ func BugsHandler(w http.ResponseWriter, r *http.Request) {
 		bugs = append(bugs, bug)
 	}
 	utils.SendResponse(200,"success", bugs, w)
+	}
+
 }
 
 func getBug(id string, w http.ResponseWriter) {
@@ -56,16 +74,27 @@ func getBug(id string, w http.ResponseWriter) {
 	}
 }
 
-// func postBugs(title string, w http.ResponseWriter) {
-// 	db := utils.ConnectUsingENV("MYSQL_CONN_STRING")
-// 	_, queryErr := db.Query("INSERT INTO bugs(title) VALUES('"+ title +"')")
-// 	utils.CheckAndSendErrorResponse(queryErr, w)
-// }
+func postBug(title string, w http.ResponseWriter) {
+	db := utils.ConnectUsingENV("MYSQL_CONN_STRING")
+	_, queryErr := db.Query("INSERT INTO bugs(title) VALUES('"+ title +"')")
+	if (queryErr != nil) {
+		gotils.SendHTTPError(queryErr, w)
+	}
+
+
+	utils.SendResponse(200, "success", Bug{
+		Title: title,
+		Resolved: false,
+		Id: 10,
+	}, w)
+}
 
 func deleteBug(id string, w http.ResponseWriter) {
 
 	_, queryErr := db.Query("DELETE FROM bugs WHERE id =" + id)
-	utils.CheckAndSendErrorResponse(queryErr,w )
+	if (queryErr != nil){
+		log.Fatal(queryErr)
+	}
 
 	utils.SendResponse(200, "success", nil, w)
 }
@@ -77,8 +106,6 @@ func BugHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		getBug(id, w)
-	// case "POST":
-	// 	// postBug()
 	case "DELETE":
 		deleteBug(id, w)
 	}
